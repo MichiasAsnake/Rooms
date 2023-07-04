@@ -7,6 +7,7 @@ const Chat = ({ roomId, username }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const chatBoxRef = useRef(null);
+  
 
   useEffect(() => {
     const unsubscribe = store
@@ -23,12 +24,12 @@ const Chat = ({ roomId, username }) => {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-
+    
     if (newMessage.trim() !== "") {
       // Send the chat message to the server
       store.collection("chatMessages").add({
         roomId,
-        sender: username,
+        sender: username, // Use the prop username instead of the state
         message: newMessage,
         timestamp: new Date(),
       });
@@ -37,7 +38,7 @@ const Chat = ({ roomId, username }) => {
       setNewMessage("");
     }
   };
-
+ 
   useEffect(() => {
     // Scroll to the bottom of the chat box whenever new messages are added
     chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;

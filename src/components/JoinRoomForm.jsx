@@ -1,82 +1,65 @@
-import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { Navigate } from "react-router-dom";
 import { store } from "./firebase";
 
-const JoinRoomPage = () => {
-  const { roomId } = useParams();
-  const history = useNavigate();
-  const [roomData, setRoomData] = React.useState(null);
-  const [password, setPassword] = React.useState("");
-  const [validationError, setValidationError] = React.useState("");
+const JoinRoom = ({ roomId, handleJoinRoom }) => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  React.useEffect(() => {
-    const fetchRoomData = async () => {
-      try {
-        const roomRef = await store.collection("rooms").doc(roomId).get();
-
-        if (roomRef.exists) {
-          const data = roomRef.data();
-          setRoomData(data);
-        } else {
-          // Room not found
-          history.replace("/"); // Redirect to a home page or show an error message
-        }
-      } catch (error) {
-        console.error("Error fetching room data:", error);
-      }
-    };
-
-    fetchRoomData();
-  }, [roomId, history]);
-
-  const handleJoinRoom = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (roomData.password && password !== roomData.password) {
-      setValidationError("Incorrect password");
+    // Perform validation on username and password
+
+    if (username.trim() === "") {
+      setError("Please enter a username.");
       return;
     }
 
-    // Perform the action to join the room
-    // Redirect or execute the necessary logic
+    if (password.trim() === "") {
+      setError("Please enter a password.");
+      return;
+    }
 
-    // Example: Redirect to the room component
-    history(`/rooms/${roomData.name}/${roomId}`);
+    // Join the room
+    handleJoinRoom(roomId, username);
   };
 
-  if (!roomData) {
-    // Render a loading state or placeholder while room data is being fetched
-    return <div>Loading...</div>;
-  }
-
   return (
-    <div className="w-96 m-auto">
-      {roomData.password ? (
-        <form
-          onSubmit={handleJoinRoom}
-          className="flex flex-col w-80 justify-center items-center h-96 space-y-4"
-        >
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-            className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {validationError && <p>{validationError}</p>}
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+      <div className="bg-white p-6 rounded shadow">
+        <h2 className="text-xl font-bold mb-4">Join Room</h2>
+        {error && <p className="text-red-500 mb-4">{error}</p>}
+        <form onSubmit={handleSubmit}>
+          <label className="block mb-2">
+            Username:
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full border border-gray-300 rounded p-2 mt-1"
+            />
+          </label>
+          <label className="block mb-2">
+            Password:
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-gray-300 rounded p-2 mt-1"
+            />
+          </label>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
+            className="bg-blue-500 text-white rounded px-4 py-2"
           >
-            Join Room
+            Join
           </button>
         </form>
-      ) : (
-        <p>This room does not require a password.</p>
-        // Render alternative content if desired, such as a countdown or waiting message
-      )}
+      </div>
     </div>
   );
 };
 
-export default JoinRoomPage;
+export default JoinRoom;

@@ -9,12 +9,11 @@ import { useRoomState } from "./roomstate";
 import Navigation from "./Navigation";
 import { store } from "./firebase";
 import JoinRoom from "./JoinRoom";
+import { useNavigate } from "react-router-dom";
 
 const Room = () => {
   const [videoUrl, setVideoUrl] = useState("");
   const [validationError, setValidationError] = useState("");
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [seekTime, setSeekTime] = useState(0);
   const { roomId } = useParams();
   const { roomState, updateRoomState } = useRoomState();
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -24,8 +23,23 @@ const Room = () => {
   const [showJoinRoom, setShowJoinRoom] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
   const [isRoomPasswordSet, setIsRoomPasswordSet] = useState(false);
+  const [roomData, setRoomData] = useState(null); // Add roomData state
 
   useEffect(() => {
+    const fetchRoomData = async () => {
+      try {
+        const roomDoc = await store.collection("rooms").doc(roomId).get();
+        const roomData = roomDoc.data();
+        setRoomData(roomData); // Set the roomData state
+        setProfilePictureUrl(roomData.profilePictureUrl);
+        setUsername(roomData.username);
+        setRoomDescription(roomData.roomDescription);
+        setIsRoomPasswordSet(!!roomData.password); // Check if room password is set
+      } catch (error) {
+        console.error("Error fetching room data:", error);
+      }
+    };
+
     const checkIfNewUser = async () => {
       try {
         const roomDoc = await store.collection("rooms").doc(roomId).get();
@@ -37,6 +51,7 @@ const Room = () => {
       }
     };
 
+    fetchRoomData();
     checkIfNewUser();
   }, [roomId]);
 
@@ -97,38 +112,26 @@ const Room = () => {
       updateRoomState(newState);
     });
 
-    socket.on("videoUrlUpdated", (newVideoUrl, isSubmitted) => {
-      updateRoomState({
-        videoUrl: newVideoUrl,
-        isSubmitted,
-      });
-    });
+    if (roomState.isSubmitted && roomState.videoUrl) {
+      socket.emit("currentVideo", roomState);
+    }
 
     return () => {
       socket.off("currentVideo");
-      socket.off("videoUrlUpdated");
     };
   }, [roomId]);
 
-  useEffect(() => {
-    const fetchRoomData = async () => {
-      try {
-        const roomDoc = await store.collection("rooms").doc(roomId).get();
-        const roomData = roomDoc.data();
-        setProfilePictureUrl(roomData.profilePictureUrl);
-        setUsername(roomData.username);
-        setRoomDescription(roomData.roomDescription);
-        setIsRoomPasswordSet(!!roomData.password); // Check if room password is set
-      } catch (error) {
-        console.error("Error fetching room data:", error);
-      }
-    };
+  const handleJoinRoom = (roomId, username) => {
+    // Perform any necessary operations to join the room
+    // Remove the modal
+    socket.emit("joinRoom", { roomId, username });
 
-    fetchRoomData();
-  }, [roomId]);
+    setShowJoinRoom(false);
 
-  const handleJoinRoom = () => {
+    // Make the page accessible
     setIsSubmitted(true);
+
+    setUsername(username);
   };
 
   return (
@@ -148,14 +151,22 @@ const Room = () => {
             scrollbarColor: "transparent transparent", // Hide scrollbar
           }}
         >
-          <div>
-            {isRoomPasswordSet && !isSubmitted && (
-              <JoinRoom roomId={roomId} handleJoinRoom={handleJoinRoom} />
-            )}
+          <div className="flex justify-center pr-4 w-full h-[1000px] box-content overflow-hidden bg-slate-600">
+            <div>
+              {username && !isSubmitted && (
+                <div className="fixed inset-0 flex items-center justify-center bg-gray-500 bg-opacity-75 z-50">
+                  <JoinRoom
+                    roomId={roomId}
+                    roomPassword={roomData?.password}
+                    handleJoinRoom={handleJoinRoom}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <div className="p-4">
             {validationError && <p>{validationError}</p>}
-            {isSubmitted && !validationError ? (
+            {roomState.isSubmitted && !validationError && roomState.videoUrl ? (
               <ReactPlayer
                 url={roomState.videoUrl}
                 playing={roomState.isPlaying}
@@ -164,10 +175,14 @@ const Room = () => {
                 height={"550px"}
                 onPlay={() => socket && socket.emit("playVideo", { roomId })}
                 onPause={() => socket && socket.emit("pauseVideo", { roomId })}
-                onProgress={(e) =>
+                onProgress={(e) => {
+                  const { played, loaded } = e;
+                  const duration = loaded ? loaded : 0;
+                  const seekTime = played * duration;
+
                   socket &&
-                  socket.emit("seekVideo", { roomId, time: e.playedSeconds })
-                }
+                    socket.emit("seekVideo", { roomId, time: seekTime });
+                }}
               />
             ) : (
               <div className="border-4 bg-slate-200 w-[980px] h-[550px] p-4"></div>

@@ -32,6 +32,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const activeRooms = {}; // Keep track of active rooms and their respective video URLs, playback state, and seek position
+console.log(activeRooms);
 
 io.on("connection", (socket) => {
   console.log("A client connected");
@@ -42,8 +43,24 @@ io.on("connection", (socket) => {
 
     // Create the room if it doesn't exist
     if (activeRooms[roomId]) {
-      const { videoUrl, isPlaying, seekTime } = activeRooms[roomId];
-      io.to(roomId).emit("currentVideo", { videoUrl, isPlaying, seekTime });
+      const { videoUrl, isPlaying, seekTime, isSubmitted } =
+        activeRooms[roomId];
+
+      // Emit the current video state to the new user who joined the room
+      socket.emit("currentVideo", {
+        videoUrl,
+        isPlaying,
+        seekTime,
+        isSubmitted,
+      });
+
+      // Broadcast the current video state to all clients in the room including the new user
+      io.to(roomId).emit("currentVideo", {
+        videoUrl,
+        isPlaying,
+        seekTime,
+        isSubmitted,
+      });
     }
   });
 
@@ -84,8 +101,6 @@ io.on("connection", (socket) => {
       activeRooms[roomId].isPlaying = true;
       io.to(roomId).emit("currentVideo", activeRooms[roomId]);
       console.log(activeRooms);
-    } else {
-      console.log(`Room ${roomId} does not exist`);
     }
   });
 
@@ -94,8 +109,6 @@ io.on("connection", (socket) => {
       activeRooms[roomId].isPlaying = false;
       io.to(roomId).emit("currentVideo", activeRooms[roomId]);
       console.log(activeRooms);
-    } else {
-      console.log(`Room ${roomId} does not exist`);
     }
   });
 
@@ -104,8 +117,6 @@ io.on("connection", (socket) => {
       activeRooms[roomId].seekTime = time;
       io.to(roomId).emit("currentVideo", activeRooms[roomId]);
       console.log(activeRooms);
-    } else {
-      console.log(`Room ${roomId} does not exist`);
     }
   });
 
